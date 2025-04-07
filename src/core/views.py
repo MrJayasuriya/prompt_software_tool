@@ -1,17 +1,18 @@
 from django.shortcuts import render
 from django.http import HttpResponse, JsonResponse
 from .models import Chat
-from langchain_openai import ChatOpenAI
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import StrOutputParser
-from dotenv import load_dotenv
-import os
+import google.generativeai as genai
 import json
+import os
+from dotenv import load_dotenv
 
 load_dotenv()
 
 # Default prompt template
 DEFAULT_PROMPT = "If i give a text you can transform english to french: {text}"
+
+# Configure Gemini
+genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
 def index(request):
     return render(request, 'core/index.html', {
@@ -30,35 +31,37 @@ def success(request):
             if not user_input:
                 return JsonResponse({'error': 'No input provided'}, status=400)
             
-            llm = ChatOpenAI(
-                model="gpt-4o", 
-                temperature=temperature,
-                api_key=os.getenv("OPENAI_API_KEY")
+            # Configure the model
+            model = genai.GenerativeModel('gemini-1.5-pro')
+            
+            # Create the full prompt
+            full_prompt = f"{system_message}\n\n{prompt_template.format(text=user_input)}" if system_message else prompt_template.format(text=user_input)
+            
+            # Generate content
+            response = model.generate_content(
+                full_prompt,
+                generation_config=genai.types.GenerationConfig(
+                    temperature=temperature,
+                    top_p=0.8,
+                    top_k=40,
+                    max_output_tokens=2048,
+                )
             )
-
-            # Create the full prompt with system message if provided
-            if system_message:
-                prompt = ChatPromptTemplate.from_messages([
-                    ("system", system_message),
-                    ("user", prompt_template)
-                ])
-            else:
-                prompt = ChatPromptTemplate.from_template(prompt_template)
-
-            chain = prompt | llm | StrOutputParser()
-            response = chain.invoke({"text": user_input})
+            
+            # Get the response text
+            response_text = response.text
 
             # Save to database
             chat = Chat.objects.create(
                 user_input=user_input, 
-                response=response,
+                response=response_text,
                 prompt_used=prompt_template,
                 system_message=system_message
             )
             
             return JsonResponse({
                 'user_input': user_input,
-                'response': response,
+                'response': response_text,
                 'prompt_template': prompt_template,
                 'system_message': system_message
             })
