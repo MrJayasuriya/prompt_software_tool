@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Interface</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <style>
+        @keyframes slideIn {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes typing {
+            from { width: 0 }
+            to { width: 100% }
+        }
+
+        .typing-animation {
+            overflow: hidden;
+            white-space: nowrap;
+            animation: typing 1s steps(40, end);
+        }
+
+        .message-animation {
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .pulse-animation {
+            animation: pulse 0.3s ease-in-out;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #666;
+        }
+
+        /* Glassmorphism */
+        .glass {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+
+        /* Markdown Styles */
+        .markdown-content {
+            line-height: 1.6;
+        }
+
+        .markdown-content h1 {
+            font-size: 1.8em;
+            font-weight: 600;
+            margin: 0.5em 0;
+            padding-bottom: 0.3em;
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+        }
+
+        .markdown-content h2 {
+            font-size: 1.5em;
+            font-weight: 600;
+            margin: 0.5em 0;
+            padding-bottom: 0.3em;
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+        }
+
+        .markdown-content h3 {
+            font-size: 1.3em;
+            font-weight: 600;
+            margin: 0.5em 0;
+        }
+
+        .markdown-content p {
+            margin: 0.8em 0;
+        }
+
+        .markdown-content ul, .markdown-content ol {
+            margin: 0.5em 0;
+            padding-left: 1.5em;
+        }
+
+        .markdown-content ul {
+            list-style-type: disc;
+        }
+
+        .markdown-content ol {
+            list-style-type: decimal;
+        }
+
+        .markdown-content li {
+            margin: 0.3em 0;
+        }
+
+        .markdown-content code:not(pre code) {
+            background: rgba(0,0,0,0.05);
+            padding: 0.2em 0.4em;
+            border-radius: 3px;
+            font-family: monospace;
+            font-size: 0.9em;
+        }
+
+        .markdown-content pre {
+            background: rgba(0,0,0,0.02);
+            padding: 1em;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 1em 0;
+        }
+
+        .markdown-content pre code {
+            font-family: monospace;
+            font-size: 0.9em;
+            line-height: 1.5;
+        }
+
+        .markdown-content blockquote {
+            border-left: 4px solid #ddd;
+            padding-left: 1em;
+            margin: 1em 0;
+            color: #666;
+        }
+
+        .markdown-content table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 1em 0;
+        }
+
+        .markdown-content th, .markdown-content td {
+            border: 1px solid #ddd;
+            padding: 0.5em;
+            text-align: left;
+        }
+
+        .markdown-content th {
+            background: rgba(0,0,0,0.05);
+        }
+
+        /* Dark mode support for code blocks */
+        .hljs {
+            background: rgba(0,0,0,0.02) !important;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 via-gray-50 to-purple-50 h-screen transition-all duration-300">
+    <div class="flex h-full">
+        <!-- Left Side - Chat Interface (70%) -->
+        <div class="w-[70%] flex flex-col h-full">
+            <!-- Chat Header -->
+            <div class="bg-white/80 backdrop-blur-md shadow-sm p-4 border-b transition-all duration-300 hover:bg-white">
+                <h1 class="text-xl font-semibold text-gray-800 flex items-center gap-2">
+                    <i class="fas fa-robot text-blue-500"></i>
+                    <span class="typing-animation">AI Chat Interface</span>
+                </h1>
+            </div>
+
+            <!-- Chat Messages Area -->
+            <div class="flex-1 overflow-y-auto p-4 space-y-4 bg-transparent" id="chat-messages">
+                <!-- Messages will be dynamically added here -->
+            </div>
+
+            <!-- Input Area -->
+            <div class="glass border-t p-4 transition-all duration-300">
+                <form id="chat-form" class="flex gap-2 items-center">
+                    {% csrf_token %}
+                    <div class="relative flex-1">
+                        <input 
+                            type="text"
+                            name="user_input"
+                            id="user-input" 
+                            class="w-full p-3 pr-12 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 bg-white/50 backdrop-blur-sm"
+                            placeholder="Type your message..."
+                        >
+                        <div id="typing-indicator" class="hidden absolute right-3 top-3 text-blue-500">
+                            <i class="fas fa-circle-notch fa-spin"></i>
+                        </div>
+                    </div>
+                    <button 
+                        type="submit"
+                        class="bg-blue-500 text-white px-6 py-3 rounded-xl hover:bg-blue-600 transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 shadow-lg"
+                    >
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Right Side - Prompt Settings (30%) -->
+        <div class="w-[30%] glass border-l flex flex-col transition-all duration-300">
+            <div class="p-4 border-b glass">
+                <h2 class="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                    <i class="fas fa-cog text-blue-500"></i>
+                    <span>Prompt Settings</span>
+                </h2>
+            </div>
+            
+            <div class="p-4 space-y-4 overflow-y-auto">
+                <div class="space-y-2 transform transition-all duration-300 hover:scale-[1.02]">
+                    <label class="block text-sm font-medium text-gray-700">Default Prompt</label>
+                    <textarea 
+                        id="prompt-template"
+                        class="w-full p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white/50 backdrop-blur-sm transition-all duration-300"
+                        rows="3"
+                    >{{ default_prompt }}</textarea>
+                </div>
+
+                <div class="space-y-2 transform transition-all duration-300 hover:scale-[1.02]">
+                    <label class="block text-sm font-medium text-gray-700">Model Settings</label>
+                    <div class="glass p-4 rounded-xl space-y-3">
+                        <div>
+                            <label class="text-sm text-gray-600">Temperature</label>
+                            <div class="flex items-center gap-2">
+                                <input 
+                                    type="range" 
+                                    id="temperature" 
+                                    min="0" 
+                                    max="1" 
+                                    step="0.1" 
+                                    value="0"
+                                    class="w-full accent-blue-500 cursor-pointer"
+                                >
+                                <span id="temperature-value" class="text-sm text-gray-600 min-w-[3ch]">0.0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="space-y-2 transform transition-all duration-300 hover:scale-[1.02]">
+                    <label class="block text-sm font-medium text-gray-700">System Message</label>
+                    <textarea 
+                        id="system-message"
+                        class="w-full p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/50 backdrop-blur-sm transition-all duration-300"
+                        rows="4"
+                        placeholder="Enter system message..."
+                    ></textarea>
+                </div>
+
+                <button 
+                    id="save-settings"
+                    class="w-full bg-green-500 text-white px-4 py-3 rounded-xl hover:bg-green-600 transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 shadow-lg"
+                >
+                    <i class="fas fa-save mr-2"></i>
+                    Save Settings
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const chatForm = document.getElementById('chat-form');
+        const userInput = document.getElementById('user-input');
+        const chatMessages = document.getElementById('chat-messages');
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        const promptTemplate = document.getElementById('prompt-template');
+        const systemMessage = document.getElementById('system-message');
+        const temperature = document.getElementById('temperature');
+        const temperatureValue = document.getElementById('temperature-value');
+        const saveSettings = document.getElementById('save-settings');
+        const typingIndicator = document.getElementById('typing-indicator');
+
+        // Update temperature value display
+        temperature.addEventListener('input', (e) => {
+            temperatureValue.textContent = parseFloat(e.target.value).toFixed(1);
+        });
+
+        // Save settings feedback with animation
+        saveSettings.addEventListener('click', () => {
+            saveSettings.classList.add('pulse-animation');
+            const originalContent = saveSettings.innerHTML;
+            saveSettings.innerHTML = '<i class="fas fa-check mr-2"></i>Settings Saved!';
+            saveSettings.classList.replace('bg-green-500', 'bg-blue-500');
+            saveSettings.classList.replace('hover:bg-green-600', 'hover:bg-blue-600');
+            
+            setTimeout(() => {
+                saveSettings.classList.remove('pulse-animation');
+                saveSettings.innerHTML = originalContent;
+                saveSettings.classList.replace('bg-blue-500', 'bg-green-500');
+                saveSettings.classList.replace('hover:bg-blue-600', 'hover:bg-green-600');
+            }, 2000);
+        });
+
+        chatForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const message = userInput.value.trim();
+            if (!message) return;
+
+            // Add user message with animation
+            addMessage(message, 'user');
+            userInput.value = '';
+            typingIndicator.classList.remove('hidden');
+
+            try {
+                const response = await fetch('{% url "success" %}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    },
+                    body: JSON.stringify({
+                        user_input: message,
+                        prompt_template: promptTemplate.value,
+                        system_message: systemMessage.value,
+                        temperature: temperature.value
+                    })
+                });
+
+                const data = await response.json();
+                typingIndicator.classList.add('hidden');
+                
+                if (response.ok) {
+                    // If there's a system message, show it first
+                    if (data.system_message) {
+                        addMessage(`System: ${data.system_message}`, 'system');
+                    }
+                    addMessage(data.response, 'assistant');
+                } else {
+                    addMessage('Error: ' + data.error, 'assistant');
+                }
+            } catch (error) {
+                typingIndicator.classList.add('hidden');
+                addMessage('Error connecting to server', 'assistant');
+            }
+        });
+
+        marked.setOptions({
+            highlight: function(code, language) {
+                if (language && hljs.getLanguage(language)) {
+                    return hljs.highlight(code, { language: language }).value;
+                }
+                return hljs.highlightAuto(code).value;
+            },
+            breaks: true,
+            gfm: true
+        });
+
+        function addMessage(text, sender) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `flex ${sender === 'user' ? 'justify-end' : 'justify-start'} message-animation`;
+            
+            const bgColor = {
+                'user': 'bg-blue-500 text-white shadow-lg',
+                'assistant': 'glass text-gray-800 shadow-md',
+                'system': 'bg-gray-200/80 backdrop-blur-sm text-gray-700 shadow-sm'
+            }[sender];
+
+            // Process markdown only for assistant messages
+            const processedText = sender === 'assistant' ? 
+                `<div class="markdown-content">${marked.parse(text)}</div>` : 
+                text;
+            
+            // Add copy button for assistant messages
+            const copyButton = sender === 'assistant' ? 
+                `<button class="copy-btn absolute top-2 right-2 text-gray-400 hover:text-gray-600 transition-colors duration-200" 
+                    onclick="copyToClipboard(this, '${text.replace(/'/g, "\\'")}')">
+                    <i class="fas fa-copy"></i>
+                </button>` : '';
+            
+            messageDiv.innerHTML = `
+                <div class="max-w-[70%] rounded-xl p-4 ${bgColor} transform transition-all duration-300 hover:scale-[1.02] relative">
+                    ${copyButton}
+                    ${processedText}
+                </div>
+            `;
+            
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            // Initialize syntax highlighting for new code blocks
+            if (sender === 'assistant') {
+                messageDiv.querySelectorAll('pre code').forEach((block) => {
+                    hljs.highlightBlock(block);
+                    
+                    // Add copy button to code blocks
+                    const codeWrapper = block.parentElement;
+                    const copyCodeBtn = document.createElement('button');
+                    copyCodeBtn.className = 'copy-code-btn absolute top-2 right-2 text-gray-400 hover:text-gray-600 bg-gray-100/50 rounded px-2 py-1 text-sm transition-colors duration-200';
+                    copyCodeBtn.innerHTML = '<i class="fas fa-copy mr-1"></i>Copy';
+                    copyCodeBtn.onclick = () => copyToClipboard(copyCodeBtn, block.textContent);
+                    
+                    // Make the code block container relative for absolute positioning of the button
+                    codeWrapper.style.position = 'relative';
+                    codeWrapper.appendChild(copyCodeBtn);
+                });
+            }
+        }
+
+        // Add copy to clipboard functionality
+        function copyToClipboard(button, text) {
+            navigator.clipboard.writeText(text).then(() => {
+                const originalContent = button.innerHTML;
+                button.innerHTML = '<i class="fas fa-check text-green-500"></i>';
+                button.classList.add('text-green-500');
+                
+                setTimeout(() => {
+                    button.innerHTML = originalContent;
+                    button.classList.remove('text-green-500');
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy text: ', err);
+                const originalContent = button.innerHTML;
+                button.innerHTML = '<i class="fas fa-times text-red-500"></i>';
+                button.classList.add('text-red-500');
+                
+                setTimeout(() => {
+                    button.innerHTML = originalContent;
+                    button.classList.remove('text-red-500');
+                }, 2000);
+            });
+        }
+
+        // Add hover effect to messages
+        chatMessages.addEventListener('mouseover', (e) => {
+            const message = e.target.closest('.message-animation');
+            if (message) {
+                message.style.transform = 'scale(1.02)';
+            }
+        });
+
+        chatMessages.addEventListener('mouseout', (e) => {
+            const message = e.target.closest('.message-animation');
+            if (message) {
+                message.style.transform = 'scale(1)';
+            }
+        });
+    </script>
+</body>
+</html>
